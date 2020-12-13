@@ -1,0 +1,32 @@
+functions:
+  updateStockDataCron:
+    handler: functions/stockDataCron.updateStockDataCron
+    timeout: 10
+    events:
+      - schedule:
+          rate: rate(5 minutes)
+          name: ${self:service}-stock-data-current
+          description: "Save stock market data in a dynamodb table every 5 minutes"
+          enabled: true
+          input:
+            section: currentData
+      - schedule:
+          rate: rate(1 day)
+          name: ${self:service}-stock-data-previous
+          description: "Save stock market data in a dynamodb table every day"
+          enabled: true
+          input:
+            section: previousData
+  getStockData:
+    handler: functions/stockData.getStockData
+    timeout: 10
+    events:
+      - alexaSkill: ${file(./env.yml):ALEXA_SKILL_ID}
+
+  getUser:
+    handler: functions/user.getUser
+    timeout: 10
+
+  updateUser:
+    handler: functions/user.updateUser
+    timeout: 10

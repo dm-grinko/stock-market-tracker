@@ -1,0 +1,81 @@
+service: stock-market-tracker
+
+frameworkVersion: ">=1.1.0 <2.0.0"
+
+plugins:
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  profile: ${file(./env.yml):PROFILE}
+  region: ${file(./env.yml):REGION}
+  environment:
+    USER_NAME: ${file(./env.yml):USER_NAME}
+    USER_ID: ${file(./env.yml):USER_ID}
+    TABLE: ${file(./env.yml):TABLE}
+    YAHOO_URL: ${file(./env.yml):YAHOO_URL}
+    YAHOO_REGION: ${file(./env.yml):YAHOO_REGION}
+    YAHOO_KEY: ${file(./env.yml):YAHOO_KEY}
+    YAHOO_HOST: ${file(./env.yml):YAHOO_HOST}
+    YAHOO_USE_QUERY_STRING: ${file(./env.yml):YAHOO_USE_QUERY_STRING}
+    GET_USER_LAMBDA: ${file(./env.yml):GET_USER_LAMBDA}
+    UPDATE_USER_LAMBDA: ${file(./env.yml):UPDATE_USER_LAMBDA}
+
+functions:
+  getStockData: ${file(./functions.yml):${'functions.getStockData'}}
+  updateStockDataCron: ${file(./functions.yml):${'functions.updateStockDataCron'}}
+  getUser: ${file(./functions.yml):${'functions.getUser'}}
+  updateUser: ${file(./functions.yml):${'functions.updateUser'}}
+
+resources:
+  Resources:
+    stockTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: "id"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "id"
+            KeyType: "HASH"
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        StreamSpecification:
+          StreamViewType: "NEW_AND_OLD_IMAGES"
+        TableName: ${self:provider.environment.TABLE}
+
+    LambdaIvokeIamPolicy:
+      Type: AWS::IAM::Policy
+      Properties:
+        PolicyName: ${self:service}-lambda-Invoke
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: 
+               - ${file(./env.yml):GET_USER_LAMBDA}
+               - ${file(./env.yml):UPDATE_USER_LAMBDA}
+        Roles:
+          - Ref: IamRoleLambdaExecution
+
+    DynamoDBIamPolicy:
+      Type: AWS::IAM::Policy
+      DependsOn: stockTable
+      Properties:
+        PolicyName: ${self:service}-lambda-dynamodb
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+              Resource: 
+                - ${file(./env.yml):DYNAMODB_TABLE}
+        Roles:
+          - Ref: IamRoleLambdaExecution
